@@ -1,0 +1,27 @@
+# Render.com deployment configuration
+services:
+  - type: web
+    name: trueface-backend
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: MODEL_DEVICE
+        value: cpu
+      - key: MAX_SESSIONS
+        value: 50
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+    disk:
+      name: trueface-disk
+      size: 1GB
+      mount: /app/data

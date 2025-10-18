@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueFACE Real-Time Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .result { background-color: #e2e3e5; padding: 10px; margin: 5px 0; border-radius: 3px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .authenticity-score { font-size: 24px; font-weight: bold; margin: 10px 0; }
+        .real { color: #28a745; }
+        .fake { color: #dc3545; }
+        .uncertain { color: #ffc107; }
+        #log { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 TrueFACE Real-Time Deepfake Detection Test</h1>
+        <p>This simulates how your browser extension will communicate with the TrueFACE backend.</p>
+        
+        <div id="status" class="status disconnected">
+            ❌ Not Connected
+        </div>
+        
+        <div class="controls">
+            <button onclick="connect()">🔌 Connect to Backend</button>
+            <button onclick="disconnect()">❌ Disconnect</button>
+            <button onclick="sendTestFrame()">📹 Send Test Frame</button>
+            <button onclick="sendRealTimeFrames()">🎥 Start Real-Time Simulation</button>
+            <button onclick="stopRealTime()">⏹️ Stop Real-Time</button>
+            <button onclick="clearLog()">🗑️ Clear Log</button>
+        </div>
+        
+        <div class="authenticity-score" id="authenticityScore">
+            Authenticity: Not Available
+        </div>
+        
+        <div class="result">
+            <strong>Session ID:</strong> <span id="sessionId">meet_user_demo</span><br>
+            <strong>Last Analysis:</strong> <span id="lastAnalysis">None</span><br>
+            <strong>Frames Analyzed:</strong> <span id="frameCount">0</span><br>
+            <strong>Connection Status:</strong> <span id="connectionStatus">Disconnected</span>
+        </div>
+        
+        <h3>📋 Real-Time Log</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let frameCount = 0;
+        let realTimeInterval = null;
+        const sessionId = 'meet_user_demo_' + Date.now();
+        
+        document.getElementById('sessionId').textContent = sessionId;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logEntry.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#333';
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            const connectionSpan = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.innerHTML = '✅ Connected to TrueFACE Backend';
+                connectionSpan.textContent = 'Connected';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.innerHTML = '❌ Not Connected';
+                connectionSpan.textContent = 'Disconnected';
+            }
+        }
+        
+        function updateAuthenticity(score) {
+            const scoreDiv = document.getElementById('authenticityScore');
+            const lastAnalysisSpan = document.getElementById('lastAnalysis');
+            
+            if (score !== null) {
+                let className = 'uncertain';
+                let status = 'Uncertain';
+                
+                if (score >= 70) {
+                    className = 'real';
+                    status = 'Likely Real';
+                } else if (score <= 30) {
+                    className = 'fake';
+                    status = 'Likely Deepfake';
+                }
+                
+                scoreDiv.className = `authenticity-score ${className}`;
+                scoreDiv.textContent = `Authenticity: ${score}% (${status})`;
+                lastAnalysisSpan.textContent = new Date().toLocaleTimeString();
+            }
+        }
+        
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('Already connected!', 'info');
+                return;
+            }
+            
+            log('Connecting to ws://localhost:8000/ws...', 'info');
+            ws = new WebSocket('ws://localhost:8000/ws');
+            
+            ws.onopen = function() {
+                log('✅ Connected to TrueFACE backend!', 'success');
+                updateStatus(true);
+                
+                // Send initial ping
+                ws.send(JSON.stringify({type: 'ping'}));
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`📥 Received: ${JSON.stringify(data)}`, 'info');
+                
+                if (data.type === 'pong') {
+                    log('🏓 Pong received - connection healthy', 'success');
+                } else if (data.type === 'analysis_result') {
+                    const result = data.data;
+                    frameCount++;
+                    document.getElementById('frameCount').textContent = frameCount;
+                    updateAuthenticity(result.authenticity);
+                    log(`🎯 Analysis: ${result.authenticity}% authentic (Session: ${result.session_id})`, 'success');
+                }
+            };
+            
+            ws.onclose = function() {
+                log('❌ Connection closed', 'error');
+                updateStatus(false);
+                stopRealTime();
+            };
+            
+            ws.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`, 'error');
+                updateStatus(false);
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                stopRealTime();
+            }
+        }
+        
+        function sendTestFrame() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ Not connected! Please connect first.', 'error');
+                return;
+            }
+            
+            // Send a test frame (1x1 pixel PNG in base64)
+            const testFrame = {
+                type: 'frame_data',
+                session_id: sessionId,
+                data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+            };
+            
+            ws.send(JSON.stringify(testFrame));
+            log('📤 Sent test frame for analysis', 'info');
+        }
+        
+        function sendRealTimeFrames() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ Not connected! Please connect first.', 'error');
+                return;
+            }
+            
+            if (realTimeInterval) {
+                log('⚠️ Real-time simulation already running!', 'info');
+                return;
+            }
+            
+            log('🎥 Starting real-time frame simulation (1 frame per second)...', 'info');
+            
+            realTimeInterval = setInterval(() => {
+                // Simulate different frame data each time
+                const randomData = btoa(Math.random().toString());
+                const frame = {
+                    type: 'frame_data',
+                    session_id: sessionId,
+                    data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+                };
+                
+                ws.send(JSON.stringify(frame));
+                log('📤 Sent real-time frame', 'info');
+            }, 1000); // Send 1 frame per second
+        }
+        
+        function stopRealTime() {
+            if (realTimeInterval) {
+                clearInterval(realTimeInterval);
+                realTimeInterval = null;
+                log('⏹️ Stopped real-time simulation', 'info');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Auto-connect on page load
+        window.onload = function() {
+            log('🚀 TrueFACE Real-Time Test Interface Loaded', 'info');
+            log('💡 Click "Connect to Backend" to start testing', 'info');
+        };
+    </script>
+</body>
+</html>
