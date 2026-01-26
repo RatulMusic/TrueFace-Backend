@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Google Meet Authenticity Overlay Demo</title>
+  <link rel="stylesheet" href="overlay.css" />
+  <style>
+    /* Demo page baseline, not part of the overlay component */
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0b1020;
+      background: linear-gradient(135deg, #0b1020 0%, #101a3a 100%);
+      font-family: Inter, Roboto, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      color: #e5e7eb;
+    }
+    .demo-wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+    .demo-card {
+      max-width: 720px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      padding: 28px;
+    }
+    .demo-card h1{margin:0 0 8px;font-weight:600}
+    .demo-card p{margin:6px 0 0;color:#cbd5e1}
+  </style>
+</head>
+<body>
+  <div class="demo-wrap">
+    <div class="demo-card">
+      <h1>Authenticity Overlay</h1>
+      <p>This page loads the overlay just like a Google Meet tab would. Use it to test visuals and behavior.</p>
+      <p>Configure the WebSocket URL in <code>config.js</code>. If unreachable and DEBUG is true, simulated data will play.</p>
+    </div>
+  </div>
+
+  <!-- Optional configuration; can be omitted in production and managed by extension configs -->
+  <script src="config.js"></script>
+  <!-- Overlay script injects the UI into document.body on load -->
+  <script src="overlay.js" defer></script>
+</body>
+</html>
